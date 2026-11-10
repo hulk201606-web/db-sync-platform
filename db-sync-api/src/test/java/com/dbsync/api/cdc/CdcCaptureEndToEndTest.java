@@ -81,7 +81,12 @@ class CdcCaptureEndToEndTest extends CdcRuntimeTestSupport {
         // ③ 位点推进：再插 1 条 → 只采到 1 条（证明位点不是"每次都从头搬"）
         appendTriggerLog(logTable, "UPDATE", "[3]", null, "{\"ID\":3,\"NAME\":\"gamma\"}");
         assertEquals(1, poller.pollOnce(taskId, mappingId), "第二轮只应采到新增的 1 条");
-        awaitUntil(() -> "gamma".equals(nameOf(TABLE, 3L)), "第 3 行被消费落库");
+        // GroupWorker 的时序是"先写目标表 → 再 markApplied → 再推水位"，
+        // 所以"目标表出现第 3 行"不代表状态已回写。等待条件必须直接等到被断言的状态，
+        // 否则 CI 上偶发会读到 count=2（本用例曾在 CI 上因此失败一次）。
+        awaitUntil(() -> "gamma".equals(nameOf(TABLE, 3L))
+                        && changeLogDao.countByStatus(taskId, ChangeStatus.APPLIED) == 3L,
+                "第 3 行被消费落库且第三条变更标记 APPLIED");
         assertEquals(3L, changeLogDao.countByStatus(taskId, ChangeStatus.APPLIED));
 
         // ④ 模拟重启：换一个全新的 poller 实例（内存状态全丢），位点必须从 sync_checkpoint 恢复
