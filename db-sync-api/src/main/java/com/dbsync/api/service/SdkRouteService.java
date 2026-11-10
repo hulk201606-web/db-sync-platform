@@ -113,7 +113,20 @@ public class SdkRouteService {
         }
         CutoverPlan plan = planOpt.get();
         CutoverState confirmed = plan.getConfirmedState();
-        long version = plan.getRouteVersion() <= 0L ? 0L : plan.getRouteVersion();
+        long persistedVersion = plan.getRouteVersion() <= 0L ? 0L : plan.getRouteVersion();
+        // 优先下发「最新已发布（intent）」路由：编排器 publish 后同步等 SDK ack，
+        // 业务侧必须能看到比 confirmed 更新的版本，否则永远 ack 不到目标版本，
+        // 每次 advance 都会 CONFIRM_TIMEOUT 并回退（2026-11-10 真库 E2E 实测）。
+        RouteSnapshot inMemory = routeRegistry == null ? null : routeRegistry.current(plan.getId());
+        if (inMemory != null && inMemory.getVersion() > persistedVersion) {
+            int grayRatio = inMemory.isWriteTarget()
+                    ? inMemory.getWriteGrayRatio() : inMemory.getReadGrayRatio();
+            return new RouteSnapshotView(taskId, inMemory.getVersion(),
+                    plan.getIntentState().name(), inMemory.getReadTarget().name(),
+                    writeToOf(inMemory), grayRatio, renderRules(inMemory.getRules()),
+                    snapshotTtlMs, now.toString());
+        }
+        long version = persistedVersion;
         RouteSnapshot snapshot = ruleEngine.snapshotFor(plan, confirmed, version, now);
         String writeTo = writeToOf(snapshot);
         int grayRatio = confirmed == CutoverState.GRAY_WRITE

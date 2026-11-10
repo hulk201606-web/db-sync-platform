@@ -32,6 +32,35 @@ public abstract class JdbcMetadataReader implements MetadataReader {
      */
     protected abstract String defaultSchema();
 
+    /**
+     * {@link DatabaseMetaData} 的 catalog 参数。
+     *
+     * <p>默认返回 {@code null}（不按 catalog 过滤）。MySQL 的 catalog 就是 database，
+     * 由 {@code MySqlMetadataReader} 覆盖为「显式 schema 优先，否则取当前连接的 catalog」——
+     * 否则 {@code getTables(null, schema, ...)} 会被 MySQL 驱动当成「不限制 catalog」，
+     * 把实例里所有库的表都读进来（2026-11-10 真库 E2E 实测：MySQL 源库读到元数据库的表）。
+     *
+     * @param c      连接
+     * @param schema 调用方传入的 schema，可能为空
+     * @return catalog 过滤值，{@code null} 表示不限制
+     */
+    protected String catalogOf(Connection c, String schema) {
+        return null;
+    }
+
+    /**
+     * {@link DatabaseMetaData} 的 schemaPattern 参数。
+     *
+     * <p>默认「显式 schema 优先，否则方言默认 schema」；MySQL 无 schema 概念，恒返回 {@code null}。
+     *
+     * @param c      连接（供方言判断驱动类型）
+     * @param schema 调用方传入的 schema，可能为空
+     * @return schemaPattern 过滤值，{@code null} 表示不限制
+     */
+    protected String schemaPatternOf(Connection c, String schema) {
+        return (schema == null || schema.isBlank()) ? defaultSchema() : schema;
+    }
+
     @Override
     public List<String> listSchemas(Connection c) throws SQLException {
         List<String> schemas = new ArrayList<>();
@@ -46,9 +75,8 @@ public abstract class JdbcMetadataReader implements MetadataReader {
     @Override
     public List<String> listTables(Connection c, String schema) throws SQLException {
         List<String> tables = new ArrayList<>();
-        String schemaPattern = (schema == null || schema.isBlank()) ? defaultSchema() : schema;
-        try (ResultSet rs = c.getMetaData().getTables(null, schemaPattern, "%",
-                new String[] {"TABLE"})) {
+        try (ResultSet rs = c.getMetaData().getTables(catalogOf(c, schema),
+                schemaPatternOf(c, schema), "%", new String[] {"TABLE"})) {
             while (rs.next()) {
                 tables.add(rs.getString("TABLE_NAME"));
             }
@@ -76,8 +104,8 @@ public abstract class JdbcMetadataReader implements MetadataReader {
     @Override
     public List<ColumnMeta> loadColumns(Connection c, String schema, String table) throws SQLException {
         List<ColumnMeta> columns = new ArrayList<>();
-        String schemaPattern = (schema == null || schema.isBlank()) ? defaultSchema() : schema;
-        try (ResultSet rs = c.getMetaData().getColumns(null, schemaPattern, table, "%")) {
+        try (ResultSet rs = c.getMetaData().getColumns(catalogOf(c, schema),
+                schemaPatternOf(c, schema), table, "%")) {
             while (rs.next()) {
                 String typeName = rs.getString("TYPE_NAME");
                 int jdbcType = rs.getInt("DATA_TYPE");
@@ -101,10 +129,10 @@ public abstract class JdbcMetadataReader implements MetadataReader {
 
     @Override
     public PrimaryKeyMeta loadPrimaryKey(Connection c, String schema, String table) throws SQLException {
-        String schemaPattern = (schema == null || schema.isBlank()) ? defaultSchema() : schema;
         Map<Short, String> ordered = new TreeMap<>();
         String pkName = null;
-        try (ResultSet rs = c.getMetaData().getPrimaryKeys(null, schemaPattern, table)) {
+        try (ResultSet rs = c.getMetaData().getPrimaryKeys(catalogOf(c, schema),
+                schemaPatternOf(c, schema), table)) {
             while (rs.next()) {
                 ordered.put(rs.getShort("KEY_SEQ"), rs.getString("COLUMN_NAME"));
                 pkName = rs.getString("PK_NAME");
@@ -118,10 +146,10 @@ public abstract class JdbcMetadataReader implements MetadataReader {
 
     @Override
     public List<IndexMeta> loadIndexes(Connection c, String schema, String table) throws SQLException {
-        String schemaPattern = (schema == null || schema.isBlank()) ? defaultSchema() : schema;
         Map<String, Map<Short, String>> byName = new LinkedHashMap<>();
         Map<String, Boolean> unique = new LinkedHashMap<>();
-        try (ResultSet rs = c.getMetaData().getIndexInfo(null, schemaPattern, table, false, false)) {
+        try (ResultSet rs = c.getMetaData().getIndexInfo(catalogOf(c, schema),
+                schemaPatternOf(c, schema), table, false, false)) {
             while (rs.next()) {
                 String indexName = rs.getString("INDEX_NAME");
                 if (indexName == null) {
@@ -150,9 +178,8 @@ public abstract class JdbcMetadataReader implements MetadataReader {
      * @throws SQLException 读取失败
      */
     protected String tableComment(Connection c, String schema, String table) throws SQLException {
-        String schemaPattern = (schema == null || schema.isBlank()) ? defaultSchema() : schema;
-        try (ResultSet rs = c.getMetaData().getTables(null, schemaPattern, table,
-                new String[] {"TABLE"})) {
+        try (ResultSet rs = c.getMetaData().getTables(catalogOf(c, schema),
+                schemaPatternOf(c, schema), table, new String[] {"TABLE"})) {
             return rs.next() ? rs.getString("REMARKS") : null;
         }
     }

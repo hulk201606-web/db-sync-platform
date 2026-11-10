@@ -62,7 +62,17 @@ public class CutoverStateMachine {
             return null;
         }
         java.util.Set<CutoverState> forward = from.forwardTargets();
-        return forward.size() == 1 ? forward.iterator().next() : null;
+        if (forward.size() == 1) {
+            return forward.iterator().next();
+        }
+        // FULL_TARGET 有 {OBSERVE, DONE} 两条前进路径，而 advance(planId, operator) 没有
+        // target 参数。按「不可跳步前进」原则默认进观察期：DONE 必须由 OBSERVE 再推一步。
+        // （2026-11-10 真库 E2E：此前返回 null，导致 FULL_TARGET 处 advance 抛
+        //   "FULL_TARGET → FULL_TARGET" 非法跃迁，切流卡在倒数第二步。）
+        if (from == CutoverState.FULL_TARGET) {
+            return CutoverState.OBSERVE;
+        }
+        return null;
     }
 
     /**

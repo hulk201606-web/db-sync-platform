@@ -25,6 +25,17 @@
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>
     </dependency>
+    <!--
+      Flyway 9.22.3 的 core 只内置 h2 / postgresql / db2 等方言，MySQL 方言拆在独立模块。
+      缺这个依赖时：H2 测试全绿，但真实 MySQL 8 元数据库启动即报
+      "Unsupported Database: MySQL 8.0"（2026-11-10 真库 E2E 实测暴露）。
+      版本必须与 flyway-core 同源，故取 Boot 管理的 flyway.version，不写死。
+    -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-mysql</artifactId>
+      <version>${flyway.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>

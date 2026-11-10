@@ -119,6 +119,7 @@ public class SystemController {
      * @return 空响应
      */
     @PostMapping("/api/auth/password")
+    @Audited(action = "USER_CHANGE_PASSWORD", targetType = "USER")
     public ApiResponse changePassword(@RequestBody(required = false) ChangePasswordRequest req) {
         CurrentUser user = CurrentUser.require();
         if (req == null || req.newPassword() == null) {
