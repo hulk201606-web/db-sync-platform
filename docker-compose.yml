@@ -1,0 +1,85 @@
+# 真实库 E2E / 联调环境：MySQL 8 元数据库 + PostgreSQL 业务库 + MailHog SMTP。
+# 用途：补上「737 全绿只跑在 H2 上」的验收盲区（见 docs/00-后端功能总览.md §16.4）。
+# 启动：docker compose up -d --build && ./scripts/smoke-real-db.sh
+name: dbsync-platform
+
+services:
+  mysql:
+    image: mysql:8.0
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: root_dev
+      MYSQL_DATABASE: dbsync_meta
+      MYSQL_USER: dbsync
+      MYSQL_PASSWORD: dbsync_dev
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dbsync_target
+      POSTGRES_USER: dbsync
+      POSTGRES_PASSWORD: dbsync_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbsync -d dbsync_target"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI：查看测试告警邮件
+
+  app:
+    build: .
+    depends_on:
+      mysql:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      # 生产口径：元数据库显式指向共享 MySQL 8（默认档是本地 H2 文件库，不可用）
+      DBSYNC_MASTER_KEY: "dbsync-local-dev-master-key-32chars-min"
+      DBSYNC_META_URL: "jdbc:mysql://mysql:3306/dbsync_meta?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai"
+      DBSYNC_META_USER: "dbsync"
+      DBSYNC_META_PASSWORD: "dbsync_dev"
+      DBSYNC_PORT: "8080"
+      DBSYNC_ALERT_CHANNELS: "LOG,EMAIL,WEBHOOK"
+      DBSYNC_ALERT_MAIL_ENABLED: "true"
+      DBSYNC_ALERT_MAIL_HOST: "mailhog"
+      DBSYNC_ALERT_MAIL_PORT: "1025"
+      DBSYNC_ALERT_MAIL_FROM: "dbsync-alert@example.com"
+      DBSYNC_ALERT_MAIL_RECIPIENTS: "ops@example.com"
+    volumes:
+      - app-data:/app/data
+      - app-reports:/app/reports
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 10
+
+volumes:
+  mysql-data:
+  pg-data:
+  app-data:
+  app-reports:

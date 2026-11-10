@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.dbsync</groupId>
+    <artifactId>db-sync-platform</artifactId>
+    <version>1.0.0</version>
+  </parent>
+  <artifactId>db-sync-compare</artifactId>
+  <name>db-sync-compare</name>
+  <description>比对：归一化规则、分块校验和、差异下钻、修复、报告（T34~T37）</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-dialect</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-metadata</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

@@ -1,0 +1,144 @@
+# =============================================================================
+# 异构数据库同步与迁移平台 —— 主配置
+#
+# 关键约定：
+#   1. 主密钥只允许来自环境变量 DBSYNC_MASTER_KEY，缺失则启动失败（宁可起不来）；
+#   2. 元数据库与业务数据源完全隔离：这里显式关掉 Spring Boot 的 DataSource/Flyway
+#      自动装配，改由 MetaDataSourceConfig 编程式装配；
+#   3. 一切阈值/周期都可配，但判定逻辑只在代码里一处（GateEvaluator / AlertService）。
+# =============================================================================
+server:
+  port: ${DBSYNC_PORT:8080}
+  shutdown: graceful
+  tomcat:
+    max-threads: 100
+    accept-count: 50
+  compression:
+    enabled: true
+
+spring:
+  application:
+    name: db-sync-platform
+  main:
+    banner-mode: off
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: false
+  autoconfigure:
+    # 本平台连"多个任意业务库"，绝不能让 Boot 去猜唯一 DataSource / 自动跑 Flyway
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  # 调度线程池：Boot 3.2 的 TaskSchedulingAutoConfiguration 默认 pool.size=1，
+  # 多个 @Scheduled（心跳 / 租约回收 / 探活 / 告警评估 / CDC 对账 / 令牌清理）会互相串行阻塞，
+  # 单源探活卡住会拖死整条调度链。这里只调属性、不自定义 TaskScheduler bean：
+  # 最小改动、零新增 bean，所有作业共享同一池；各作业内部另有 AtomicBoolean 防重入。
+  # 池大小必须与生产代码中的 @Scheduled 入口数一致（当前 6 个：
+  # SchedulerConfig 的心跳/租约回收/探活/告警评估 + CdcRuntimeConfig.reconcile
+  # + AuthTokenCleanupScheduler 令牌清理）；新增作业时同步调大，否则又会串行。
+  task:
+    scheduling:
+      pool:
+        size: 6
+
+dbsync:
+  # 主密钥：必须由环境变量注入（≥32 字符随机值）。留空则启动失败。
+  master-key: ${DBSYNC_MASTER_KEY:}
+  # 轮换期可配置上一版密钥（双读）
+  previous-master-key: ${DBSYNC_PREVIOUS_MASTER_KEY:}
+  key-version: ${DBSYNC_KEY_VERSION:1}
+
+  instance:
+    host: ${DBSYNC_INSTANCE_HOST:}
+    port: ${DBSYNC_PORT:8080}
+
+  pool:
+    max-size: 8
+    min-idle: 1
+    fetch-size: 1000
+
+  lease:
+    duration-seconds: 30
+    heartbeat-millis: 10000
+
+  # SKIP_LOCKED / NOWAIT_PROBE / OPTIMISTIC_CAS（DM8 部分版本不支持 SKIP LOCKED）
+  claim-strategy: ${DBSYNC_CLAIM_STRATEGY:SKIP_LOCKED}
+
+  report-dir: ${DBSYNC_REPORT_DIR:reports}
+
+  auth:
+    token-ttl-minutes: ${DBSYNC_AUTH_TOKEN_TTL_MINUTES:480}
+    # SEC-05：会话空闲超时（分钟）。0 表示禁用空闲失效（只保留 TTL）
+    idle-timeout-minutes: ${DBSYNC_AUTH_IDLE_TIMEOUT_MINUTES:30}
+
+  alert:
+    # 生效渠道（LOG / WEBHOOK / EMAIL，逗号分隔），可用环境变量覆盖；默认仍仅 LOG。
+    # 写成标量而非 YAML 列表：列表无法用单个环境变量覆盖，会让"默认全静默"既不可配也看不见。
+    # MetricsConfig 会显式按逗号 split + 去空白，不依赖 relaxed binding 的猜测行为。
+    channels: ${DBSYNC_ALERT_CHANNELS:LOG}
+    webhook-url: ${DBSYNC_ALERT_WEBHOOK:}
+    lag-threshold-ms: 60000
+    fail-rate-threshold: 0.001
+    # OBS-02 邮件告警：默认关闭（enabled=false 时不发信，也不影响服务启动）
+    mail:
+      enabled: ${DBSYNC_ALERT_MAIL_ENABLED:false}
+      host: ${DBSYNC_ALERT_MAIL_HOST:}
+      port: ${DBSYNC_ALERT_MAIL_PORT:25}
+      username: ${DBSYNC_ALERT_MAIL_USERNAME:}
+      password: ${DBSYNC_ALERT_MAIL_PASSWORD:}
+      from: ${DBSYNC_ALERT_MAIL_FROM:}
+      starttls: ${DBSYNC_ALERT_MAIL_STARTTLS:false}
+      ssl: ${DBSYNC_ALERT_MAIL_SSL:false}
+      connect-timeout-ms: ${DBSYNC_ALERT_MAIL_CONNECT_TIMEOUT_MS:5000}
+      recipients: ${DBSYNC_ALERT_MAIL_RECIPIENTS:}
+
+  jobs:
+    heartbeat-ms: 15000
+    lease-reap-ms: 20000
+    health-probe-ms: 60000
+    alert-evaluate-ms: 30000
+
+  # 允许跨域访问 /api/** 的源（逗号分隔，支持 Ant 风格 * 通配）。
+  # 默认仅放开本机调试源；生产请按实际前端域名覆盖 DBSYNC_CORS_ALLOWED_ORIGINS，
+  # 不要直接填 "*"（allowCredentials=true 时不允许通配任意源）。
+  cors:
+    allowed-origins: "${DBSYNC_CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}"
+
+
+# 元数据库（由 db-sync-metadata 的 MetaDataSourceConfig 装配，独立于业务数据源）
+db-sync:
+  meta:
+    # 默认 H2 文件库仅供单机/联调；生产必须把 DBSYNC_META_URL 设置为共享 MySQL 8 的 JDBC URL，
+    # 让多实例共用同一元数据库（否则租约 / 心跳 / 台账各写各的，集群协作失效）。
+    jdbc-url: ${DBSYNC_META_URL:jdbc:h2:file:./data/meta;MODE=MySQL;DATABASE_TO_LOWER=TRUE}
+    username: ${DBSYNC_META_USER:sa}
+    password: ${DBSYNC_META_PASSWORD:sa}
+    pool-max-size: 10
+    pool-min-idle: 2
+    migrate-at-start: true
+    # 兼容键（已废弃）：抢占策略真源是上面的 dbsync.claim-strategy，
+    # ShardDao 已改为从同一键读取；此处保留仅为兼容旧配置 / 外部脚本，请勿单独改这里。
+    claim-strategy: ${DBSYNC_CLAIM_STRATEGY:SKIP_LOCKED}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: db-sync-platform
+
+logging:
+  level:
+    root: INFO
+    com.dbsync: INFO

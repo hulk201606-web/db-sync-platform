@@ -1,0 +1,49 @@
+/* ============================================================
+   设计令牌（Design Tokens）
+   全站颜色/间距/字体只允许通过变量引用，便于后续切换浅色主题。
+   ============================================================ */
+:root {
+  /* 背景层 */
+  --bg: #0b0f17;
+  --bg-elevated: #0f1520;
+  --panel: #141a24;
+  --panel-hover: #172030;
+  --panel-2: #101620;
+  --line: #1f2937;
+  --line-strong: #2a3748;
+
+  /* 主色与语义色 */
+  --accent: #22d3ee;
+  --accent-weak: rgba(34, 211, 238, 0.12);
+  --accent-line: rgba(34, 211, 238, 0.35);
+  --ok: #34d399;
+  --ok-weak: rgba(52, 211, 153, 0.12);
+  --warn: #fbbf24;
+  --warn-weak: rgba(251, 191, 36, 0.12);
+  --danger: #f87171;
+  --danger-weak: rgba(248, 113, 113, 0.12);
+  --info: #60a5fa;
+  --muted-weak: rgba(148, 163, 184, 0.1);
+
+  /* 文本 */
+  --text: #e5e7eb;
+  --text-dim: #cbd5e1;
+  --muted: #94a3b8;
+  --faint: #64748b;
+
+  /* 字体 */
+  --mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", Roboto, sans-serif;
+
+  /* 尺寸 */
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --nav-w: 216px;
+  --header-h: 52px;
+  --gap: 16px;
+
+  /* 阴影 */
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.6);
+}

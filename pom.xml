@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    父 POM：直接继承 spring-boot-starter-parent 以获得一致的依赖版本管理与 surefire 配置。
+    版本锁死 3.2.11（架构 §2 技术选型；Boot 3.2.x 管理 flyway 9.22.3 / h2 2.2.224，与 JDK 17 匹配）。
+  -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.2.11</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.dbsync</groupId>
+  <artifactId>db-sync-platform</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+  <name>db-sync-platform</name>
+  <description>异构数据库同步与迁移平台</description>
+
+  <modules>
+    <module>db-sync-common</module>
+    <module>db-sync-dialect</module>
+    <module>db-sync-metadata</module>
+    <module>db-sync-core</module>
+    <module>db-sync-migration</module>
+    <module>db-sync-cdc</module>
+    <module>db-sync-compare</module>
+    <module>db-sync-cutover</module>
+    <module>db-sync-api</module>
+    <module>db-sync-server</module>
+  </modules>
+
+  <properties>
+    <java.version>17</java.version>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <dbsync.version>1.0.0</dbsync.version>
+    <!-- JaCoCo prepare-agent 会把 -javaagent 参数写入该 property；
+         先给空默认值，保证插件未执行时 surefire 的 argLine 仍是合法 JVM 参数。 -->
+    <jacocoArgLine></jacocoArgLine>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.dbsync</groupId>
+        <artifactId>db-sync-common</artifactId>
+        <version>${dbsync.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.dbsync</groupId>
+        <artifactId>db-sync-dialect</artifactId>
+        <version>${dbsync.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.dbsync</groupId>
+        <artifactId>db-sync-metadata</artifactId>
+        <version>${dbsync.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.dbsync</groupId>
+        <artifactId>db-sync-core</artifactId>
+        <version>${dbsync.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.dbsync</groupId>
+        <artifactId>db-sync-migration</artifactId>
+        <version>${dbsync.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.dbsync</groupId>
+        <artifactId>db-sync-cdc</artifactId>
+        <version>${dbsync.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.dbsync</groupId>
+        <artifactId>db-sync-compare</artifactId>
+        <version>${dbsync.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.dbsync</groupId>
+        <artifactId>db-sync-cutover</artifactId>
+        <version>${dbsync.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.dbsync</groupId>
+        <artifactId>db-sync-api</artifactId>
+        <version>${dbsync.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <configuration>
+            <!--
+              必须用 @{...} 延迟求值：Maven 在构建 POM 模型阶段就会把 ${...} 插值完成，
+              而那时 JaCoCo prepare-agent 还没执行，jacocoArgLine 仍是空串，
+              导致 -javaagent 永远进不了 fork JVM（表现为每个模块
+              "Skipping JaCoCo execution due to missing execution data file"）。
+              surefire 的 @{...} 在真正 fork 时才读取 property，此时 prepare-agent 已写好值。
+              jacocoArgLine 在 properties 里有空默认值，插件未执行时也不会产生非法 JVM 参数。
+            -->
+            <argLine>@{jacocoArgLine} -Xmx1g -XX:+UseG1GC</argLine>
+            <trimStackTrace>false</trimStackTrace>
+            <!-- 单个 fork 最长 300s：挂起测试（忙等 / awaitTermination）不会拖死整轮构建 -->
+            <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
+            <!--
+              Windows 跨盘符（工程在 D:、本地仓库在 C:）时，surefire 默认的
+              manifest-only JAR 会把 classpath 写成相对/绝对混杂的路径，
+              测试进程偶发 NoClassDefFoundError（且每次缺失的类都不同）。
+              直接传完整 classpath，避免这一类"偶发缺类"的假失败。
+            -->
+            <useManifestOnlyJar>false</useManifestOnlyJar>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <plugins>
+      <!--
+        只生成覆盖率报告，不设 fail 门槛：不得影响现有全绿基线。
+        prepare-agent 把 -javaagent 写入 jacocoArgLine，surefire 的 argLine 以 @{jacocoArgLine}
+        延迟引用（并保留 -Xmx1g -XX:+UseG1GC），因此报告有真实数据；
+        jacocoArgLine 在 properties 里有空默认值，插件未执行时也不会产生非法 JVM 参数。
+      -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.12</version>
+        <executions>
+          <execution>
+            <id>jacoco-prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <!-- 写入 jacocoArgLine，由 pluginManagement 里的 surefire argLine 引用，
+                   否则 prepare-agent 默认写 argLine property 会被硬编码参数覆盖，报告为空。 -->
+              <propertyName>jacocoArgLine</propertyName>
+            </configuration>
+          </execution>
+          <execution>
+            <id>jacoco-report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

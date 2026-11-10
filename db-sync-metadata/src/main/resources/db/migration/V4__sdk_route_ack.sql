@@ -1,0 +1,22 @@
+-- ---------------------------------------------------------------------------
+-- V4：SDK 路由确认版本（PRD CUT-01「每次变更广播给 SDK，≤3 秒生效」的闭环）
+--
+-- 背景：V1 的 cutover_plan 只有 route_version（平台"已下发"的版本），
+--       没有任何字段记录"SDK 实际生效到哪一版"。没有它，切流侧无法回答
+--       "这次 5% → 20% 的灰度，业务侧到底有没有吃到"，只能靠猜。
+--       V4 增加 acked_version：由 SDK 主动 ack（POST /api/sdk/route-ack）写入，
+--       迁移完成度 = acked_version / route_version。
+--
+-- 语法约束（硬规则 3）：
+--   * 只用标准 DDL：ALTER TABLE ... ADD COLUMN ... NOT NULL DEFAULT 常量
+--   * 不写 ENGINE/CHARSET/AFTER 等 MySQL 专有子句（H2 MODE=MySQL 不支持 AFTER）
+--   * 默认值必须给：存量计划（已有行）要能补出确定值 0（"从未被 ack"），不能留 NULL
+--
+-- 兼容性：
+--   * H2 2.x，MODE=MySQL：ADD COLUMN + NOT NULL + DEFAULT 常量均支持；
+--   * MySQL 8.0：sql_mode=STRICT_* 下常量默认值同样成立；
+--   * Oracle 12c+/PostgreSQL/DB2/DM：BIGINT / BIGINT 别名等价写法见方言文档，
+--     本平台元数据库统一为 MySQL 语义（架构 §2），迁移脚本只保证 H2 与 MySQL 双跑通。
+-- ---------------------------------------------------------------------------
+ALTER TABLE cutover_plan
+  ADD COLUMN acked_version BIGINT NOT NULL DEFAULT 0;

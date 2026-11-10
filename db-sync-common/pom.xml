@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.dbsync</groupId>
+    <artifactId>db-sync-platform</artifactId>
+    <version>1.0.0</version>
+  </parent>
+  <artifactId>db-sync-common</artifactId>
+  <name>db-sync-common</name>
+  <description>领域模型、枚举、异常、Options、工具类（不依赖 Spring / JDBC）</description>
+
+  <dependencies>
+    <!--
+      仅 slf4j-api（版本由 Boot 管理）：StructuredLog 需要日志门面，而 slf4j 是每个 starter 的
+      传递依赖，已经在所有模块的 classpath 上，因此这不引入任何新的运行时重量级组件。
+    -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

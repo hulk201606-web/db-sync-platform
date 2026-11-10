@@ -1,0 +1,34 @@
+# =============================================================================
+# 本地/测试档：内存元数据库 + 演示主密钥
+#
+# 用法：--spring.profiles.active=h2
+# 注意：这里的 master-key 只是为了"本地能跑通"，生产必须用环境变量注入，
+#       否则数据源口令的加密强度形同虚设（密钥进了代码库）。
+# =============================================================================
+dbsync:
+  master-key: local-demo-master-key-please-override-32bytes
+  key-version: 1
+  report-dir: target/reports
+  jobs:
+    heartbeat-ms: 30000
+    lease-reap-ms: 45000
+    health-probe-ms: 120000
+    alert-evaluate-ms: 60000
+  alert:
+    # 与主档保持一致：标量 + 环境变量覆盖，避免 h2 档把 DBSYNC_ALERT_CHANNELS 覆盖掉
+    channels: ${DBSYNC_ALERT_CHANNELS:LOG}
+
+db-sync:
+  meta:
+    jdbc-url: jdbc:h2:mem:dbsync_meta;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: sa
+    pool-max-size: 6
+    pool-min-idle: 1
+    migrate-at-start: true
+    claim-strategy: SKIP_LOCKED
+
+logging:
+  level:
+    root: WARN
+    com.dbsync: INFO

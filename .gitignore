@@ -1,0 +1,45 @@
+# Maven
+target/
+**/target/
+*.class
+*.jar
+!lib/**/*.jar
+
+# Node / 前端源码构建产物（注意：db-sync-server/src/main/resources/static 是交付产物，不忽略）
+node_modules/
+db-sync-console/dist/
+db-sync-console/dist-mock/
+db-sync-console/.vite/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 运行时数据 / 报告 / 日志
+data/
+reports/
+*.log
+*.log.*
+*.tmp
+*.pid
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+.DS_Store
+
+# 本地环境（含密钥，严禁提交）
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Spring Boot / OS
+.spring-boot-devtools.properties
+Thumbs.db
+
+# 开发机专用 Maven settings：含本机绝对路径与内网 Nexus 注释，不入库
+settings-central.xml

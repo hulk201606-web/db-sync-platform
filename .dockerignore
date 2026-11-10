@@ -1,0 +1,17 @@
+.git
+.gitignore
+.github
+.workbuddy
+**/target
+**/node_modules
+db-sync-console/dist
+db-sync-console/dist-mock
+data
+reports
+*.log
+*.log.*
+.env
+.env.local
+.env.*.local
+README.md
+docs

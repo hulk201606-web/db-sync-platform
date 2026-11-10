@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.dbsync</groupId>
+    <artifactId>db-sync-platform</artifactId>
+    <version>1.0.0</version>
+  </parent>
+  <artifactId>db-sync-api</artifactId>
+  <name>db-sync-api</name>
+  <description>REST API：controller/service/dto/security/audit/alert/metrics/schedule</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-dialect</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-metadata</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-migration</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-cdc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-compare</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dbsync</groupId>
+      <artifactId>db-sync-cutover</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!--
+      OBS-02 邮件告警：Spring Boot 官方 starter（spring-context-support + jakarta.mail + angus-mail）。
+      选它的理由：不引第三方邮件库（commons-email/hutool 之类），
+      JavaMailSender 是 Boot 里"发一封纯文本邮件"的标准做法，且超时/STARTTLS/SSL 全部可配。
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
